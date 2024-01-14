@@ -1,0 +1,20 @@
+{
+  "name": "evolution",
+  "version": "1.0.0",
+  "description": "The evolution",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "tulip"
+  ],
+  "author": "demojie",
+  "license": "ISC",
+  "dependencies": {
+    "chalk": "^4.0.0",
+    "fast-csv": "^4.3.6",
+    "mathjs": "^12.3.0",
+    "tulind": "^0.8.20"
+  }
+}
