@@ -3,7 +3,7 @@ const chalk = require('chalk');
 const fs = require('fs');
 const path = require('path');
 const csv = require('fast-csv');
-const { max, evaluate } = require('mathjs');
+const { max, min, evaluate } = require('mathjs');
 
 chalk.enabled = true;
 chalk.level = 1;
@@ -24,7 +24,8 @@ fs.createReadStream(path.resolve(__dirname, 'data.csv'))
     dates.push(row.date);
   })
   .on('end', () => {
-    smaTrading();
+    // smaTrading();
+    tutrtleTrading();
 });
 
 // 简单的策略，使用SMA（Simple Moving Average）作为交易信号
@@ -98,9 +99,101 @@ function smaTrading() {
       const STOST = evaluateFormat(`${sells} * 0.0005`);
       ALL_STOST = evaluateFormat(`${ALL_STOST} + ${STOST}`);
       capital = evaluateFormat(`${capital} + ${sells} - ${STOST}`);
-      console.log(`${dates[trades.length - 1]} Sell at: ${sellPrice}, Sells: ${profit} STOST: ${STOST}`);
+      console.log(`${dates[trades.length - 1]} Sell at: ${sellPrice}, Sells: ${sells} STOST: ${STOST}`);
     }
 
     console.log(`Total Profit: ${evaluateFormat(`${capital} - ${initialCapital}`)}, HF: ${ALL_HF}, STOST: ${ALL_STOST}`);
   });
+}
+
+// 海龟交易法
+function tutrtleTrading() {
+  let lastPrice = parseFloat(trades[0]);
+  let maxPrice = lastPrice;
+  let minPrice = lastPrice;
+  let buyPrice = 0;
+  let sellingPrice = 0;
+  let buyingPrice = 0;
+  let hands = 0;
+  let ALL_HF = 0;     // 券商手续费
+  let ALL_STOST = 0;  // 印花税
+
+  const k = 0.02; //风险系数
+
+  const initialCapital = 100000;
+  let capital = initialCapital;
+
+  let isBought = false;
+
+  for (let i = 1; i < trades.length; i++) {
+    let currentPrice = trades[i];
+    maxPrice = max(currentPrice, maxPrice);
+    minPrice = min(currentPrice, minPrice);
+
+    if (!isBought) {
+      buyingPrice = maxPrice * (1 - k);
+      if (currentPrice > buyingPrice) {
+        isBought = true;
+        buyPrice = currentPrice;
+
+        const { resultCapital, buyHands, HF } = buy(buyPrice, capital, i);
+
+        ALL_HF = evaluateFormat(`${ALL_HF} + ${HF}`);
+        capital = resultCapital;
+        hands = buyHands;
+      }
+    } else {
+      sellingPrice = minPrice * (1 + k);
+      if (currentPrice < sellingPrice) {
+        isBought = false;
+        maxPrice = currentPrice;
+        minPrice = currentPrice;
+        const sellPrice = currentPrice;
+        
+        const { STOST, resultCapital } = sell(sellPrice, buyPrice, hands, capital, i);
+
+        ALL_STOST = evaluateFormat(`${ALL_STOST} + ${STOST}`);
+        capital = resultCapital;
+        hands = 0;
+      }
+    }
+  }
+
+  // 如果仍有持仓，计算最终盈利
+  if (isBought) {
+    const sellPrice = trades[trades.length - 1];
+    const sells = evaluateFormat(`${sellPrice} * ${hands} * 100`);
+    const STOST = evaluateFormat(`${sells} * 0.0005`);
+    ALL_STOST = evaluateFormat(`${ALL_STOST} + ${STOST}`);
+    capital = evaluateFormat(`${capital} + ${sells} - ${STOST}`);
+    console.log(`${dates[trades.length - 1]} Sell at: ${sellPrice}, Sells: ${sells} STOST: ${STOST}`);
+  }
+
+  console.log(`Total Profit: ${evaluateFormat(`${capital} - ${initialCapital}`)}, HF: ${ALL_HF}, STOST: ${ALL_STOST}`);
+}
+
+function buy(buyPrice, capital, i) {
+  const HF = max(5, evaluateFormat(`${capital} * 0.0001`));
+  let resultCapital = evaluateFormat(`${capital} - ${HF}`);
+  const buyHands = Math.floor(resultCapital / (buyPrice * 100));
+  resultCapital = evaluateFormat(`${resultCapital} - ${buyPrice} * ${buyHands} * 100`)
+  console.log(`${dates[i]} Buy at: ${buyPrice}, hands: ${buyHands}, HF: ${HF}, capital: ${resultCapital}`);
+
+  return { resultCapital, buyHands, HF }
+}
+
+function sell(sellPrice, buyPrice, hands, capital, i) {
+  const profit = evaluateFormat(`(${sellPrice} - ${buyPrice}) * ${hands} * 100`);
+  const sells = evaluateFormat(`${sellPrice} * ${hands} * 100`);
+  const STOST = evaluateFormat(`${sells} * 0.0005`);
+
+  const resultCapital = evaluateFormat(`${capital} + ${sells} - ${STOST}`);
+  if (profit > 0) {
+    console.log(chalk.red(`${dates[i]} Sell at: ${sellPrice}, Profit: ${profit}, STOST: ${STOST},  capital: ${resultCapital}`));
+  } else {
+    console.log(chalk.green(`${dates[i]} Sell at: ${sellPrice}, Profit: ${profit}, STOST: ${STOST},  capital: ${resultCapital}`));
+  }
+  console.log(`----------------------------------------------------------------------------------`);
+
+  return { resultCapital, STOST }
 }
