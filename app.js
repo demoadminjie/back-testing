@@ -1,5 +1,5 @@
 const fs = require('fs');
-const { buyAndHold, smaStrategy, smaStrategyWithVolume, complexStrategy } = require('./strategy');
+const { buyAndHold, smaStrategy, smaWithVolume, smaWithVolumeAndStoploss, complexStrategy } = require('./strategy');
 const { tradingItem } = require('./index');
 
 // 定义要读取的文件夹路径
@@ -16,7 +16,7 @@ async function main() {
 
   for (const stock of stocks) {
   // for (const stock of ['000858']) {
-    await tradingItem(stock, [buyAndHold, smaStrategy, smaStrategyWithVolume, complexStrategy]);
+    await tradingItem(stock, [buyAndHold, smaStrategy, smaWithVolume, smaWithVolumeAndStoploss, complexStrategy]);
     // await tradingItem(stock, [buyAndHold]);
   }
 }

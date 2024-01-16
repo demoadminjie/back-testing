@@ -33,7 +33,7 @@ const smaStrategy = (values) => {
  * 买入信号：当短期均线上穿长期均线时，产生买入信号。例如，当5日均线上穿10日均线时
  * 卖出信号：当短期均线下穿长期均线时，产生卖出信号。例如，当5日均线下穿10日均线时
  */
-const smaStrategyWithVolume = (values) => {
+const smaWithVolume = (values) => {
   const sma5 = simpleMovingAverage(5, values.map((item) => item.close));
   const sma10 = simpleMovingAverage(10, values.map((item) => item.close));
 
@@ -47,6 +47,33 @@ const smaStrategyWithVolume = (values) => {
         postion = true;
         return { handle: 'buy' };
       } else if (postion && item < sma10[index]) {
+        postion = false;
+        return { handle: 'sell' };
+      }
+    } else {
+      return null;
+    }
+  });
+}
+
+const smaWithVolumeAndStoploss = (values) => {
+  const prices = values.map((item) =>item.close);
+  const sma5 = simpleMovingAverage(5, prices);
+  const sma10 = simpleMovingAverage(10, prices);
+
+  const smaVolume = simpleMovingAverage(10, values.map((item) => item.volume));
+
+  let postion = false;  // 是否持仓
+
+  let stoploss = 0;   // 止损线
+
+  return prices.map((item, index) => {
+    if(sma5[index] && sma10[index] && smaVolume[index]) {
+      if (!postion && sma5[index] > sma10[index] && values[index].volume > smaVolume[index]) {
+        postion = true;
+        stoploss = item * 0.95;
+        return { handle: 'buy' };
+      } else if (postion && (item < stoploss || (sma5[index] < sma10[index]))) {
         postion = false;
         return { handle: 'sell' };
       }
@@ -83,6 +110,7 @@ const complexStrategy = (values) => {
 module.exports = {
   buyAndHold,
   smaStrategy,
-  smaStrategyWithVolume,
+  smaWithVolume,
+  smaWithVolumeAndStoploss,
   complexStrategy
 }

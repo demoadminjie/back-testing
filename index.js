@@ -53,9 +53,10 @@ function consoleTable(logs, stockItem) {
   });
 
   logs.forEach((log) => {
+    const profitInfo = `${ log.totalProfit } (${ evaluateFormat(`${log.totalProfit} / ${log.initialCapital} * 100`) }%)`;
     table.push([
       cyan(log.name),
-      log.totalProfit > 0 ? red(log.totalProfit) : green(log.totalProfit),
+      log.totalProfit > 0 ? red(profitInfo) : green(profitInfo),
       yellow(log.TIMES),
       red(`${ log.SUCCESS_TIMES } (${ evaluateFormat(`${log.SUCCESS_TIMES} / ${log.TIMES} * 100`) }%)`),
       blue(log.ALL_HF),
@@ -162,7 +163,7 @@ function trading(trades, dates, strategy, isDetailConsole=true) {
     console.log(`----------------------------------------------------------------------------------`);
   }
 
-  return { name: strategy.name, totalProfit, TIMES, ALL_HF, ALL_STOST, SUCCESS_TIMES };
+  return { name: strategy.name, totalProfit, TIMES, ALL_HF, ALL_STOST, SUCCESS_TIMES, initialCapital };
 }
 
 module.exports = {
