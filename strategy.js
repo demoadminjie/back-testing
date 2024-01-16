@@ -56,8 +56,33 @@ const smaStrategyWithVolume = (values) => {
   });
 }
 
+const smaComplexStrategy = (values) => {
+  const prices = values.map((item) =>item.close);
+  const sma50 = simpleMovingAverage(50, prices);
+  const sma100 = simpleMovingAverage(100, prices);
+
+  const smaVolume = simpleMovingAverage(10, values.map((item) => item.volume));
+
+  let postion = false;
+
+  return prices.map((item, index) => {
+    if (sma50[index] && sma100[index] && smaVolume[index]) {
+      if (!postion && item > sma50[index] && sma50[index] > sma100[index] && smaVolume[index] > 1000000) {
+        postion = true;
+        return { handle: 'buy' };
+      } else if (postion &&(item < sma50[index] || sma50[index] < sma100[index] || smaVolume[index] < 1000000)) {
+        postion = false;
+        return { handle: 'sell' };
+      }
+    } else {
+      return null;
+    }
+  });
+}
+
 module.exports = {
   buyAndHold,
   smaStrategy,
-  smaStrategyWithVolume
+  smaStrategyWithVolume,
+  smaComplexStrategy
 }

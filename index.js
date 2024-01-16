@@ -5,8 +5,6 @@ const Table = require('cli-table3');
 const csv = require('fast-csv');
 const { max, min, evaluate } = require('mathjs');
 
-const { buyAndHold, smaStrategy, smaStrategyWithVolume } = require('./strategy');
-
 chalk.enabled = true;
 chalk.level = 1;
 
@@ -16,33 +14,33 @@ const evaluateFormat = (express) => {
   return Number(parseFloat(evaluate(express)).toFixed(2));
 };
 
-// 股票交易数据存储器
-let trades = [];
-let dates = [];
+function tradingItem(stockItem, strategys) {
+  // 股票交易数据存储器
+  let trades = [];
+  let dates = [];
 
-// 读取股票交易数据
-fs.createReadStream(path.resolve(__dirname, '601012.csv'))
-  .pipe(csv.parse({headers: true}))
-  .on('data', (row) => {
-    const newRow = {};
-    for (const key in row) {
-      if (key != 'date') {
-        newRow[key] = parseFloat(row[key]);
+  // 读取股票交易数据
+  fs.createReadStream(path.resolve(__dirname, stockItem + '.csv'))
+    .pipe(csv.parse({headers: true}))
+    .on('data', (row) => {
+      const newRow = {};
+      for (const key in row) {
+        if (key != 'date') {
+          newRow[key] = parseFloat(row[key]);
+        }
       }
-    }
-    trades.push(newRow);
-    dates.push(row.date);
-  })
-  .on('end', () => {
-    const log0 = trading(trades, dates, buyAndHold, false);
-    const log1 = trading(trades, dates, smaStrategy, false);
-    const log2 = trading(trades, dates, smaStrategyWithVolume, false);
-    consoleTable([log0, log1, log2]);
-});
+      trades.push(newRow);
+      dates.push(row.date);
+    })
+    .on('end', () => {
+      const logs = strategys.map((strategy) => trading(trades, dates, strategy, strategys.length === 1));
+      consoleTable(logs, stockItem);
+  });
+}
 
-function consoleTable(logs) {
+function consoleTable(logs, stockItem) {
   const table = new Table({
-    head: ['策略', '盈利', '交易次数', '券商手续费', '印花税'].map((item) => magenta(item)),
+    head: [ stockItem + ' 策略', '盈利', '交易次数', '券商手续费', '印花税' ].map((item) => magenta(item)),
   });
 
   logs.forEach((log) => {
@@ -89,8 +87,8 @@ function sell(sellPrice, buyPrice, hands, capital, i, isConsole=true) {
   return { resultCapital, STOST }
 }
 
-function trading(tardes, dates, strategy, isDetailConsole=true) {
-  const operations = strategy(tardes);
+function trading(trades, dates, strategy, isDetailConsole=true) {
+  const operations = strategy(trades);
 
   let buyPrice = 0;
   let hands = 0;
@@ -98,13 +96,13 @@ function trading(tardes, dates, strategy, isDetailConsole=true) {
   let ALL_STOST = 0;  // 印花税
   let TIMES = 0;      // 交易次数
 
-  const initialCapital = 100000;
+  const initialCapital = 1000000;
   let capital = initialCapital;
   
   let isBought = false;
   
   for(let i = 0; i < trades.length; i++) {
-    const currentPrice = tardes[i].close;
+    const currentPrice = trades[i].close;
 
     if (!isBought && operations[i]?.handle === 'buy') {
       isBought = true;
@@ -151,4 +149,8 @@ function trading(tardes, dates, strategy, isDetailConsole=true) {
   }
 
   return { name: strategy.name, totalProfit, TIMES, ALL_HF, ALL_STOST };
+}
+
+module.exports = {
+  tradingItem
 }
