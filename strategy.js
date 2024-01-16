@@ -56,7 +56,7 @@ const smaStrategyWithVolume = (values) => {
   });
 }
 
-const smaComplexStrategy = (values) => {
+const complexStrategy = (values) => {
   const prices = values.map((item) =>item.close);
   const sma50 = simpleMovingAverage(50, prices);
   const sma100 = simpleMovingAverage(100, prices);
@@ -84,5 +84,5 @@ module.exports = {
   buyAndHold,
   smaStrategy,
   smaStrategyWithVolume,
-  smaComplexStrategy
+  complexStrategy
 }

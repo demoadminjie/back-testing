@@ -49,7 +49,7 @@ function tradingItem(stockItem, strategys) {
 
 function consoleTable(logs, stockItem) {
   const table = new Table({
-    head: [ stockItem + ' 策略', '盈利', '交易次数', '券商手续费', '印花税' ].map((item) => magenta(item)),
+    head: [ stockItem + ' 策略', '盈利', '交易次数', '交易成功次数', '券商手续费', '印花税' ].map((item) => magenta(item)),
   });
 
   logs.forEach((log) => {
@@ -57,6 +57,7 @@ function consoleTable(logs, stockItem) {
       cyan(log.name),
       log.totalProfit > 0 ? red(log.totalProfit) : green(log.totalProfit),
       yellow(log.TIMES),
+      red(`${ log.SUCCESS_TIMES } (${ evaluateFormat(`${log.SUCCESS_TIMES} / ${log.TIMES} * 100`) }%)`),
       blue(log.ALL_HF),
       blue(log.ALL_STOST),
     ]);
@@ -85,7 +86,6 @@ function sell(sellPrice, buyPrice, hands, capital, i, dates, isConsole=true) {
   const profit = evaluateFormat(`(${sellPrice} - ${buyPrice}) * ${hands} * 100`);
   const sells = evaluateFormat(`${sellPrice} * ${hands} * 100`);
   const STOST = evaluateFormat(`${sells} * ${STOSTFEE}`);
-
   const resultCapital = evaluateFormat(`${capital} + ${sells} - ${STOST}`);
 
   if(isConsole) {
@@ -97,7 +97,7 @@ function sell(sellPrice, buyPrice, hands, capital, i, dates, isConsole=true) {
     console.log(`----------------------------------------------------------------------------------`);
   }
 
-  return { resultCapital, STOST }
+  return { resultCapital, STOST, isSuccess: profit > 0 }
 }
 
 function trading(trades, dates, strategy, isDetailConsole=true) {
@@ -108,6 +108,7 @@ function trading(trades, dates, strategy, isDetailConsole=true) {
   let ALL_HF = 0;     // 券商手续费
   let ALL_STOST = 0;  // 印花税
   let TIMES = 0;      // 交易次数
+  let SUCCESS_TIMES = 0;  // 交易成功次数
 
   const initialCapital = 1000000;
   let capital = initialCapital;
@@ -130,12 +131,13 @@ function trading(trades, dates, strategy, isDetailConsole=true) {
       isBought = false;
       const sellPrice = operations[i]?.price || currentPrice;
         
-      const { STOST, resultCapital } = sell(sellPrice, buyPrice, hands, capital, i, dates, isDetailConsole);
+      const { STOST, resultCapital, isSuccess } = sell(sellPrice, buyPrice, hands, capital, i, dates, isDetailConsole);
 
       ALL_STOST = evaluateFormat(`${ALL_STOST} + ${STOST}`);
       capital = resultCapital;
       hands = 0;
       TIMES++;
+      isSuccess && SUCCESS_TIMES++;
     } else if ((isBought && operations[i]?.handle === 'buy') || (!isBought && operations[i]?.handle === 'sell')) {
       console.log(red(`${dates[i]} Error: ${operations[i]}`));
     }
@@ -144,24 +146,23 @@ function trading(trades, dates, strategy, isDetailConsole=true) {
   // 如果仍有持仓，计算最终盈利
   if (isBought) {
     const sellPrice = trades[trades.length - 1].close;
-    const sells = evaluateFormat(`${sellPrice} * ${hands} * 100`);
-    const STOST = evaluateFormat(`${sells} * ${STOSTFEE}`);
+    const { STOST, resultCapital, isSuccess } = sell(sellPrice, buyPrice, hands, capital, trades.length - 1, dates, isDetailConsole);
+
     ALL_STOST = evaluateFormat(`${ALL_STOST} + ${STOST}`);
-    capital = evaluateFormat(`${capital} + ${sells} - ${STOST}`);
+    capital = resultCapital;
+    hands = 0;
     TIMES++;
-    if (isDetailConsole) {
-      console.log(`${dates[trades.length - 1]} Sell at: ${sellPrice}, Sells: ${sells} STOST: ${STOST}`);
-      console.log(`----------------------------------------------------------------------------------`);
-    }
+    isSuccess && SUCCESS_TIMES++;
   }
 
   const totalProfit = evaluateFormat(`${capital} - ${initialCapital}`);
 
   if (isDetailConsole) {
-    console.log(`${cyan(strategy.name)} Total Profit: ${totalProfit > 0 ? red(totalProfit) : green(totalProfit)}, TIMES: ${yellow(TIMES)}, ALL_HF: ${blue(ALL_HF)}, ALL_STOST: ${blue(ALL_STOST)}`);
+    console.log(`${cyan(strategy.name)} Total Profit: ${totalProfit > 0 ? red(totalProfit) : green(totalProfit)}, TIMES: ${yellow(TIMES)}, SUCCESS_TIMES: ${red(SUCCESS_TIMES)}, ALL_HF: ${blue(ALL_HF)}, ALL_STOST: ${blue(ALL_STOST)}`);
+    console.log(`----------------------------------------------------------------------------------`);
   }
 
-  return { name: strategy.name, totalProfit, TIMES, ALL_HF, ALL_STOST };
+  return { name: strategy.name, totalProfit, TIMES, ALL_HF, ALL_STOST, SUCCESS_TIMES };
 }
 
 module.exports = {
