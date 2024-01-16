@@ -10,6 +10,9 @@ chalk.level = 1;
 
 const { red, green, yellow, blue, magenta, cyan } = chalk;
 
+const HANDFEE = 0.00013;
+const STOSTFEE = 0.0005;
+
 const evaluateFormat = (express) => {
   return Number(parseFloat(evaluate(express)).toFixed(2));
 };
@@ -56,11 +59,15 @@ function consoleTable(logs, stockItem) {
   console.log(table.toString());
 }
 
-function buy(buyPrice, capital, i, isConsole=true) {
-  const HF = max(5, evaluateFormat(`${capital} * 0.0001`));
-  let resultCapital = evaluateFormat(`${capital} - ${HF}`);
-  const buyHands = Math.floor(resultCapital / (buyPrice * 100));
-  resultCapital = evaluateFormat(`${resultCapital} - ${buyPrice} * ${buyHands} * 100`)
+function buy(buyPrice, capital, i, dates, isConsole=true) {
+  // 计算能够购买的股票手数，券商是要收股票手数和手续费加起来不能超过总资金；
+  // 如股价为1块的股票，100000块不能买1000手，而是买999手
+  const buyHands = Math.floor(capital / evaluateFormat(`${buyPrice} * 100 * (1 + ${HANDFEE})`));
+
+  const buyCost = evaluateFormat(`${buyPrice} * ${buyHands} * 100`);
+  const HF = max(5, evaluateFormat(`${buyCost} * ${HANDFEE}`));
+
+  const resultCapital = evaluateFormat(`${capital} - ${HF} - ${buyCost}`);
   if(isConsole) {
     console.log(`${dates[i]} Buy at: ${buyPrice}, hands: ${buyHands}, HF: ${HF}, capital: ${resultCapital}`);
   }
@@ -68,10 +75,10 @@ function buy(buyPrice, capital, i, isConsole=true) {
   return { resultCapital, buyHands, HF }
 }
 
-function sell(sellPrice, buyPrice, hands, capital, i, isConsole=true) {
+function sell(sellPrice, buyPrice, hands, capital, i, dates, isConsole=true) {
   const profit = evaluateFormat(`(${sellPrice} - ${buyPrice}) * ${hands} * 100`);
   const sells = evaluateFormat(`${sellPrice} * ${hands} * 100`);
-  const STOST = evaluateFormat(`${sells} * 0.0005`);
+  const STOST = evaluateFormat(`${sells} * ${STOSTFEE}`);
 
   const resultCapital = evaluateFormat(`${capital} + ${sells} - ${STOST}`);
 
@@ -108,7 +115,7 @@ function trading(trades, dates, strategy, isDetailConsole=true) {
       isBought = true;
       buyPrice = operations[i]?.price || currentPrice;
 
-      const { resultCapital, buyHands, HF } = buy(buyPrice, capital, i, isDetailConsole);
+      const { resultCapital, buyHands, HF } = buy(buyPrice, capital, i, dates, isDetailConsole);
 
       ALL_HF = evaluateFormat(`${ALL_HF} + ${HF}`);
       capital = resultCapital;
@@ -117,7 +124,7 @@ function trading(trades, dates, strategy, isDetailConsole=true) {
       isBought = false;
       const sellPrice = operations[i]?.price || currentPrice;
         
-      const { STOST, resultCapital } = sell(sellPrice, buyPrice, hands, capital, i, isDetailConsole);
+      const { STOST, resultCapital } = sell(sellPrice, buyPrice, hands, capital, i, dates, isDetailConsole);
 
       ALL_STOST = evaluateFormat(`${ALL_STOST} + ${STOST}`);
       capital = resultCapital;
@@ -132,7 +139,7 @@ function trading(trades, dates, strategy, isDetailConsole=true) {
   if (isBought) {
     const sellPrice = trades[trades.length - 1].close;
     const sells = evaluateFormat(`${sellPrice} * ${hands} * 100`);
-    const STOST = evaluateFormat(`${sells} * 0.0005`);
+    const STOST = evaluateFormat(`${sells} * ${STOSTFEE}`);
     ALL_STOST = evaluateFormat(`${ALL_STOST} + ${STOST}`);
     capital = evaluateFormat(`${capital} + ${sells} - ${STOST}`);
     TIMES++;
