@@ -106,18 +106,18 @@ function trading(tardes, dates, strategy, isDetailConsole=true) {
   for(let i = 0; i < trades.length; i++) {
     const currentPrice = tardes[i].close;
 
-    if (!isBought && operations[i] === 'buy') {
+    if (!isBought && operations[i]?.handle === 'buy') {
       isBought = true;
-      buyPrice = currentPrice;
+      buyPrice = operations[i]?.price || currentPrice;
 
       const { resultCapital, buyHands, HF } = buy(buyPrice, capital, i, isDetailConsole);
 
       ALL_HF = evaluateFormat(`${ALL_HF} + ${HF}`);
       capital = resultCapital;
       hands = buyHands;
-    } else if (isBought && operations[i] === 'sell') {
+    } else if (isBought && operations[i]?.handle === 'sell') {
       isBought = false;
-      const sellPrice = currentPrice;
+      const sellPrice = operations[i]?.price || currentPrice;
         
       const { STOST, resultCapital } = sell(sellPrice, buyPrice, hands, capital, i, isDetailConsole);
 
@@ -125,7 +125,7 @@ function trading(tardes, dates, strategy, isDetailConsole=true) {
       capital = resultCapital;
       hands = 0;
       TIMES++;
-    } else if ((isBought && operations[i] === 'buy') || (!isBought && operations[i] === 'sell')) {
+    } else if ((isBought && operations[i]?.handle === 'buy') || (!isBought && operations[i]?.handle === 'sell')) {
       console.log(red(`${dates[i]} Error: ${operations[i]}`));
     }
   }

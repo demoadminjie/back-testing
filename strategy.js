@@ -1,10 +1,10 @@
 /**
- * 所有的策略返回操作数组，里面的值只有 'buy' 'sell' null
+ * 所有的策略返回操作数组，里面的有操作 'buy' 'sell' 和 操作对应的价格（不必须，如果没有就默认为当天的close价）或者 null
  */
 const { simpleMovingAverage } = require('./technical/ma');
 
 const buyAndHold = (values) => {
-  return values.map((item, index) =>  index === 0 ? 'buy' : null );
+  return values.map((item, index) =>  index === 0 ? { handle: 'buy' } : null );
 }
 
 const smaStrategy = (values) => {
@@ -17,10 +17,10 @@ const smaStrategy = (values) => {
     if(item && sma10[index]) {
       if (!postion && item > sma10[index]) {
         postion = true;
-        return 'buy';
+        return { handle: 'buy' };
       } else if (postion && item < sma10[index]) {
         postion = false;
-        return 'sell';
+        return { handle: 'sell' };
       }
     } else {
       return null;
@@ -45,10 +45,10 @@ const smaStrategyWithVolume = (values) => {
     if(item && sma10[index] && smaVolume[index]) {
       if (!postion && item > sma10[index] && values[index].volume > smaVolume[index]) {
         postion = true;
-        return 'buy';
+        return { handle: 'buy' };
       } else if (postion && item < sma10[index]) {
         postion = false;
-        return 'sell';
+        return { handle: 'sell' };
       }
     } else {
       return null;
