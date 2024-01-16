@@ -18,26 +18,32 @@ const evaluateFormat = (express) => {
 };
 
 function tradingItem(stockItem, strategys) {
-  // 股票交易数据存储器
-  let trades = [];
-  let dates = [];
+  return new Promise((resolve) => {
+    // 股票交易数据存储器
+    let trades = [];
+    let dates = [];
 
-  // 读取股票交易数据
-  fs.createReadStream(path.resolve(__dirname, stockItem + '.csv'))
-    .pipe(csv.parse({headers: true}))
-    .on('data', (row) => {
-      const newRow = {};
-      for (const key in row) {
-        if (key != 'date') {
-          newRow[key] = parseFloat(row[key]);
+    // 读取股票交易数据
+    fs.createReadStream(path.resolve(__dirname , 'stocks', stockItem + '.csv'))
+      .pipe(csv.parse({headers: true}))
+      .on('data', (row) => {
+        const newRow = {};
+        for (const key in row) {
+          if (key != 'date') {
+            newRow[key] = parseFloat(row[key]);
+          }
         }
-      }
-      trades.push(newRow);
-      dates.push(row.date);
-    })
-    .on('end', () => {
-      const logs = strategys.map((strategy) => trading(trades, dates, strategy, strategys.length === 1));
-      consoleTable(logs, stockItem);
+        trades.push(newRow);
+        dates.push(row.date);
+      })
+      .on('end', () => {
+        const logs = strategys.map((strategy) => trading(trades, dates, strategy, strategys.length === 1));
+        resolve({logs, stockItem});
+        consoleTable(logs, stockItem);
+      })
+      .on('error', (error) => {
+        reject(error); // 当出现错误时，调用reject()表示Promise已失败
+      });
   });
 }
 

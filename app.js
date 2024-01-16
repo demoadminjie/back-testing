@@ -1,8 +1,19 @@
+const fs = require('fs');
 const { buyAndHold, smaStrategy, smaStrategyWithVolume, smaComplexStrategy } = require('./strategy');
 const { tradingItem } = require('./index');
 
-const stocks = [ '000001', '0700HK', '600177', '600519', '601012', '601328', '601919' ];
+// 定义要读取的文件夹路径
+const stocksPath = './stocks';
 
-stocks.forEach((stock) => {
-  tradingItem(stock, [buyAndHold, smaStrategy, smaStrategyWithVolume, smaComplexStrategy]);
+// 使用async/await确保按顺序执行
+async function main() {
+  const stocks = fs.readdirSync(stocksPath).filter(file => file.endsWith('.csv')).map(file => file.split('.').slice(0, -1).join('.'));
+
+  for (const stock of stocks) {
+    await tradingItem(stock, [buyAndHold, smaStrategy, smaStrategyWithVolume, smaComplexStrategy]);
+  }
+}
+
+main().catch((error) => {
+  console.error('Error:', error);
 });
