@@ -21,6 +21,9 @@ async function main() {
   }
 }
 
+console.time('normal');
 main().catch((error) => {
   console.error('Error:', error);
 });
+console.timeEnd('normal');
+
