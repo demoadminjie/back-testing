@@ -17,14 +17,14 @@ const evaluateFormat = (express) => {
   return Number(parseFloat(evaluate(express)).toFixed(2));
 };
 
-function tradingItem(stockItem, strategys) {
+function tradingItem(stockId, strategys) {
   return new Promise((resolve) => {
     // 股票交易数据存储器
     let trades = [];
     let dates = [];
 
     // 读取股票交易数据
-    fs.createReadStream(path.resolve(__dirname , 'stocks', stockItem + '.csv'))
+    fs.createReadStream(path.resolve(__dirname , 'stocks', stockId + '.csv'))
       .pipe(csv.parse({headers: true}))
       .on('data', (row) => {
         const newRow = {};
@@ -38,13 +38,32 @@ function tradingItem(stockItem, strategys) {
       })
       .on('end', () => {
         const logs = strategys.map((strategy) => trading(trades, dates, strategy, strategys.length === 1));
-        resolve({logs, stockItem});
-        consoleTable(logs, stockItem);
+        resolve({logs, stockId});
+        consoleTable(logs, stockId);
       })
       .on('error', (error) => {
         reject(error); // 当出现错误时，调用reject()表示Promise已失败
       });
   });
+}
+
+function tradingItemByRedis(stockId, stocks, strategys) {
+  const trades = [];
+  const dates = [];
+
+  stocks.forEach((row) => {
+    const newRow = {};
+    for (const key in row) {
+      if (key != 'date') {
+        newRow[key] = parseFloat(row[key]);
+      }
+    }
+    trades.push(newRow);
+    dates.push(row.date);
+  });
+
+  const logs = strategys.map((strategy) => trading(trades, dates, strategy, strategys.length === 1));
+  consoleTable(logs, stockId);
 }
 
 function consoleTable(logs, stockItem) {
@@ -167,5 +186,6 @@ function trading(trades, dates, strategy, isDetailConsole=true) {
 }
 
 module.exports = {
-  tradingItem
+  tradingItem,
+  tradingItemByRedis
 }

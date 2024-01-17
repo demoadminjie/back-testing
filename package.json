@@ -17,6 +17,7 @@
     "cli-table3": "^0.6.3",
     "fast-csv": "^4.3.6",
     "mathjs": "^12.3.0",
+    "redis": "^4.6.12",
     "technicalindicators": "^3.1.0"
   }
 }
