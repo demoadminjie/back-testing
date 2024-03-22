@@ -3,6 +3,8 @@
  */
 const { simpleMovingAverage } = require('./technical/ma');
 
+const { MACD } = require('technicalindicators');
+
 const buyAndHold = (values) => {
   return values.map((item, index) =>  index === 0 ? { handle: 'buy' } : null );
 }
@@ -35,18 +37,18 @@ const smaStrategy = (values) => {
  */
 const smaWithVolume = (values) => {
   const sma5 = simpleMovingAverage(5, values.map((item) => item.close));
-  const sma10 = simpleMovingAverage(10, values.map((item) => item.close));
+  const sma60 = simpleMovingAverage(60, values.map((item) => item.close));
 
   const smaVolume = simpleMovingAverage(10, values.map((item) => item.volume));
 
   let postion = false;  // 是否持仓
 
   return sma5.map((item, index) => {
-    if(item && sma10[index] && smaVolume[index]) {
-      if (!postion && item > sma10[index] && values[index].volume > smaVolume[index]) {
+    if(item && sma60[index] && smaVolume[index]) {
+      if (!postion && item > sma60[index] && values[index].volume > smaVolume[index]) {
         postion = true;
         return { handle: 'buy' };
-      } else if (postion && item < sma10[index]) {
+      } else if (postion && item < sma60[index]) {
         postion = false;
         return { handle: 'sell' };
       }
@@ -56,24 +58,35 @@ const smaWithVolume = (values) => {
   });
 }
 
-const smaWithVolumeAndStoploss = (values) => {
+const macdStartegy = (values) => {
+  const EMA_SHORT = 12;
+  const EMA_LONG = 26;
+  const SIGNAL_PERIOD = 9;
+
   const prices = values.map((item) =>item.close);
-  const sma5 = simpleMovingAverage(5, prices);
-  const sma10 = simpleMovingAverage(10, prices);
+  const macdInput = {
+    values: prices,
+    fastPeriod: EMA_SHORT,
+    slowPeriod: EMA_LONG,
+    signalPeriod: SIGNAL_PERIOD,
+    SimpleMAOscillator: false,
+    SimpleMASignal: false,
+  };
 
-  const smaVolume = simpleMovingAverage(10, values.map((item) => item.volume));
+  const macdOutput = MACD.calculate(macdInput);
 
-  let postion = false;  // 是否持仓
+  let postion = false;
 
-  let stoploss = 0;   // 止损线
-
-  return prices.map((item, index) => {
-    if(sma5[index] && sma10[index] && smaVolume[index]) {
-      if (!postion && sma5[index] > sma10[index] && values[index].volume > smaVolume[index]) {
+  const options = values.map((item, index) => {
+    if (index >= EMA_LONG) {
+      const prevMACD = macdOutput[index - (EMA_LONG - 1) - 1].histogram;
+      const currentMACD = macdOutput[index - (EMA_LONG - 1)].histogram;
+      if (!postion && prevMACD <= 0 && currentMACD > 0) {
         postion = true;
-        stoploss = item * 0.95;
         return { handle: 'buy' };
-      } else if (postion && (item < stoploss || (sma5[index] < sma10[index]))) {
+      }
+  
+      if (postion &&  prevMACD >= 0 && currentMACD < 0 ) {
         postion = false;
         return { handle: 'sell' };
       }
@@ -81,6 +94,8 @@ const smaWithVolumeAndStoploss = (values) => {
       return null;
     }
   });
+
+  return options;
 }
 
 const complexStrategy = (values) => {
@@ -107,10 +122,52 @@ const complexStrategy = (values) => {
   });
 }
 
+const gridStrategy = (values) => {
+  const prices = values.map((item) =>item.close);
+
+  const grid = .05;
+
+  let prevPrice = 0;
+
+  return prices.map((item, index) => {
+     if (item > prices[index - 1] * (1 + grid)) {
+      prevPrice = item;
+      return { handle: '', hand: Math.floor(2000 / item) }
+    } else if (item < prices[index - 1] * (1 - grid)) {
+      prevPrice = item;
+      return { handle: '', hand: Math.floor(2000 / item) }
+    } else if (index === 0) {
+      return { handle: 'buy', hand: Math.floor(2000 / item) };
+    } else {
+      return null;
+    }
+  });
+}
+
+// 终极交易法，发明时光机，看到未来的价格，然后买入&卖出
+const godStrategy = (values) => {
+  const prices = values.map((item) =>item.close);
+  let postion = false;
+  return prices.map((item, index) => {
+    if (index < prices.length) {
+      if (!postion && item < prices[index + 1]) {
+        postion = true;
+        return { handle: 'buy' };
+      } else if (postion && item > prices[index + 1]) {
+        postion = false;
+        return { handle: 'sell' };
+      } else {
+        return null;
+      }
+    }
+  });
+}
+
 module.exports = {
   buyAndHold,
   smaStrategy,
   smaWithVolume,
-  smaWithVolumeAndStoploss,
-  complexStrategy
+  macdStartegy,
+  complexStrategy,
+  godStrategy,
 }

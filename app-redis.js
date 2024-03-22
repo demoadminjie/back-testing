@@ -6,7 +6,7 @@ const client = require('./redis/client');
 // 定义要读取的文件夹路径
 const stocksPath = './stocks';
 
-const filterStock = ['000001', '600177', '600519', '601328'];
+const filterStock = [] || ['000001', '600177', '600519', '601328'];
 
 // 使用async/await确保按顺序执行
 async function main() {

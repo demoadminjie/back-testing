@@ -96,10 +96,43 @@ function buy(buyPrice, capital, i, dates, isConsole=true) {
 
   const resultCapital = evaluateFormat(`${capital} - ${HF} - ${buyCost}`);
   if(isConsole) {
-    console.log(`${dates[i]} Buy at: ${buyPrice}, hands: ${buyHands}, HF: ${HF}, capital: ${resultCapital}`);
+    console.log(`${dates[i]} Buy at: ${buyPrice}, Buy: ${buyCost}, hands: ${buyHands}, HF: ${HF}, capital: ${resultCapital}`);
   }
 
   return { resultCapital, buyHands, HF }
+}
+
+function gridBuy(buyPrice, buyHand, capital, i, dates, isConsole=true) {
+
+  const bought = evaluateFormat(`${buyPrice} * ${buyHand} * 100 * (1 + ${HANDFEE})`) < capital;
+
+  if (bought) {
+    const buyCost = evaluateFormat(`${buyPrice} * ${buyHand} * 100`);
+    const HF = max(5, evaluateFormat(`${buyCost} * ${HANDFEE}`));
+  
+    const resultCapital = evaluateFormat(`${capital} - ${HF} - ${buyCost}`);
+    if(isConsole) {
+      console.log(`${dates[i]} Buy at: ${buyPrice}, Buy: ${buyCost}, hand: ${buyHand}, HF: ${HF}, capital: ${resultCapital}`);
+    }
+
+    return { resultCapital, bought, HF }
+  } else {
+    return { resultCapital: capital, bought, HF: 0 }
+  }
+}
+
+function gridSell(sellPrice, sellHand, capital, i, dates, isConsole=true) {
+  // const profit = evaluateFormat(`(${sellPrice} - ${buyPrice}) * ${sellHand} * 100`);
+  const sells = evaluateFormat(`${sellPrice} * ${sellHand} * 100`);
+  const STOST = evaluateFormat(`${sells} * ${STOSTFEE}`);
+  const resultCapital = evaluateFormat(`${capital} + ${sells} - ${STOST}`);
+
+  if(isConsole) {
+    console.log(red(`${dates[i]} Sell at: ${sellPrice}, Sells: ${sells}, hand: ${sellHand}, STOST: ${STOST}, capital: ${resultCapital}`));
+    console.log(`----------------------------------------------------------------------------------`);
+  }
+
+  return { resultCapital, STOST, isSuccess: profit > 0 }
 }
 
 function sell(sellPrice, buyPrice, hands, capital, i, dates, isConsole=true) {
@@ -130,7 +163,7 @@ function trading(trades, dates, strategy, isDetailConsole=true) {
   let TIMES = 0;      // 交易次数
   let SUCCESS_TIMES = 0;  // 交易成功次数
 
-  const initialCapital = 1000000;
+  const initialCapital = 100000;
   let capital = initialCapital;
   
   let isBought = false;
@@ -167,6 +200,73 @@ function trading(trades, dates, strategy, isDetailConsole=true) {
   if (isBought) {
     const sellPrice = trades[trades.length - 1].close;
     const { STOST, resultCapital, isSuccess } = sell(sellPrice, buyPrice, hands, capital, trades.length - 1, dates, isDetailConsole);
+
+    ALL_STOST = evaluateFormat(`${ALL_STOST} + ${STOST}`);
+    capital = resultCapital;
+    hands = 0;
+    TIMES++;
+    isSuccess && SUCCESS_TIMES++;
+  }
+
+  const totalProfit = evaluateFormat(`${capital} - ${initialCapital}`);
+
+  if (isDetailConsole) {
+    console.log(`${cyan(strategy.name)} Total Profit: ${totalProfit > 0 ? red(totalProfit) : green(totalProfit)}, TIMES: ${yellow(TIMES)}, SUCCESS_TIMES: ${red(SUCCESS_TIMES)}, ALL_HF: ${blue(ALL_HF)}, ALL_STOST: ${blue(ALL_STOST)}`);
+    console.log(`----------------------------------------------------------------------------------`);
+  }
+
+  return { name: strategy.name, totalProfit, TIMES, ALL_HF, ALL_STOST, SUCCESS_TIMES, initialCapital };
+}
+
+function gridTrading(trades, dates, strategy, isDetailConsole=true) {
+  const operations = strategy(trades);
+
+  let buyPrice = 0;
+  let hands = 0;
+  let ALL_HF = 0;     // 券商手续费
+  let ALL_STOST = 0;  // 印花税
+  let TIMES = 0;      // 交易次数
+  let SUCCESS_TIMES = 0;  // 交易成功次数
+
+  const initialCapital = 1000000;
+  let capital = initialCapital;
+  
+  let isBought = false;
+  
+  for(let i = 0; i < trades.length; i++) {
+    const currentPrice = trades[i].close;
+
+    if (!isBought && operations[i]?.handle === 'buy') {
+      isBought = true;
+      buyPrice = operations[i]?.price || currentPrice;
+      const buyHand = operations[i]?.hand || 5;
+
+      const { resultCapital, HF } = gridBuy(buyPrice, buyHand, capital, i, dates, isDetailConsole);
+
+      ALL_HF = evaluateFormat(`${ALL_HF} + ${HF}`);
+      capital = resultCapital;
+      hands += buyHand;
+    } else if (isBought && operations[i]?.handle === 'sell') {
+      isBought = false;
+      const sellPrice = operations[i]?.price || currentPrice;
+      const sellHand = operations[i]?.hand || 5;
+
+      const { STOST, resultCapital, isSuccess } = gridSell(sellPrice, sellHand, capital, i, dates, isDetailConsole);
+
+      ALL_STOST = evaluateFormat(`${ALL_STOST} + ${STOST}`);
+      capital = resultCapital;
+      hands -= buyHands;
+      TIMES++;
+      isSuccess && SUCCESS_TIMES++;
+    } else if ((isBought && operations[i]?.handle === 'buy') || (!isBought && operations[i]?.handle === 'sell')) {
+      console.log(red(`${dates[i]} Error: ${operations[i]}`));
+    }
+  }
+
+  // 如果仍有持仓，计算最终盈利
+  if (isBought) {
+    const sellPrice = trades[trades.length - 1].close;
+    const { STOST, resultCapital, isSuccess } = gridSell(sellPrice, hands, capital, trades.length - 1, dates, isDetailConsole);
 
     ALL_STOST = evaluateFormat(`${ALL_STOST} + ${STOST}`);
     capital = resultCapital;
